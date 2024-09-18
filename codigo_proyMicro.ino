@@ -87,6 +87,7 @@ void loop() {
     ultimaLecturaExitosa = millis();
     humedad = nuevaHumedad;
     temperatura = nuevaTemperatura;
+    estadosol = nuevaestadosol;
     ultimaVezLeido = 0;
     indicarExitoDht();
   }
