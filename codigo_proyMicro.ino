@@ -3,10 +3,11 @@
 #include <WiFiManager.h>          //https://github.com/tzapu/WiFiManager WiFi Configuration Magic
 #include <DNSServer.h>
 #include <ESP8266WebServer.h>
-#include "data.h" // exporta libreria data.h
+#include "data.h" // importa libreria data.h
 #include <SimpleDHT.h>
 #include <Wire.h>
-#include <Adafruit_BMP180.h>
+#include <Adafruit_BMP085.h>
+#define seaLevelPressure_hPa 1013.25
 
 int pinDHT11 = D0;
 int pinFACTORY = D6;
@@ -21,7 +22,7 @@ long intervaloLectura = 5000; // Debería ser mayor que 2000
 unsigned long ultimaLecturaExitosa = 0;
 
 float humedad, temperatura = 0;
-unsigned long tiempo_actual=0, intervaloLectura=0;
+unsigned long tiempo_actual=0;
 const long tiempo_cancelacion = 500;
 
 ESP8266WiFiMulti wifiMulti;
@@ -48,9 +49,10 @@ void setup() {
   // Set WiFi to station mode
   WiFi.mode(WIFI_STA);
   Serial.println("conectado a wifi ...");
-   if(!bmp.begin()){
+   if(!bmp.begin()){ //configuracion en caso de no estar conectado el bmp180
       Serial.println("Error en BMP180");
-   }
+     
+  }
 }
 
   //configurar rutas
@@ -67,6 +69,7 @@ void setup() {
   servidor.begin();
 
 }
+}
 
 void loop() {
   
@@ -77,8 +80,11 @@ void loop() {
   {
     float nuevaHumedad = sensor.readHumidity();
     float nuevaTemperatura = sensor.readTemperature();
+    float nuevaAltitud = bmp.readAltitude();
+    float nuevaPresion =bmp.readPressure();
+    if()
     // Si los datos son correctos, actualizamos las globales
-    if (isnan(nuevaTemperatura) || isnan(nuevaHumedad)|| isnan(nuevaestadoSol))
+    if (isnan(nuevaTemperatura) || isnan(nuevaHumedad)|| isnan(nuevaestadoSol)|| isnan(nuevaAltitud)|| isnan(nuevaPresion))
     {
       indicarErrorDht();
       ultimaVezLeido = 0;
@@ -87,8 +93,11 @@ void loop() {
     ultimaLecturaExitosa = millis();
     humedad = nuevaHumedad;
     temperatura = nuevaTemperatura;
+    presion =nuevaPresion;
+    altitud = nuevaAltitud;
     ultimaVezLeido = 0;
     indicarExitoDht();
+    
   }
   delay(1);
   ultimaVezLeido += 1;
@@ -109,7 +118,7 @@ void loop() {
     tiempo_anterior = tiempo_actual;
     String lineaActual = "";
 
-    while (cliente.conected()&& tiempo_actual - tiempo_anterior && <= tiempo_cancelacion){
+    while (cliente.conected()&& tiempo_actual - tiempo_anterior <= tiempo_cancelacion){
       if(cliente.available()){ 
       tiempo_actual = millis();
       char letra = cliente.read();
@@ -121,8 +130,8 @@ void loop() {
     }
 
     cliente.stop();
-    Serial.printl("cliente desconectado");
-    Serial.printl();
+    Serial.println("cliente desconectado");
+    Serial.println();
 
     }
 
@@ -139,7 +148,7 @@ void loop() {
   //muestra todo el servidor de la pagina web comprimida
   void rutaRaiz()
   {
-    servidor.send(200, "text/html","<!DOCTYPE html><html lang='es'><head> <meta charset='UTF-8'> <meta name='viewport' content='width=device-width, initial-scale=1.0'> <title>Sensor de temperatura </title> <link rel='stylesheet' href='https://unpkg.com/bulma@0.9.1/css/bulma.min.css'> <link rel='stylesheet' href='https://stackpath.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css'></head><body> <section id='app' class='hero is-link is-fullheight'> <div class='hero-body'> <div class='container'> <div class='columns has-text-centered'> <div class='column'> <h1 style='font-size: 2.5rem'>Termómetro</h1> <i class='fa' :class='claseTermometro' style='font-size: 4rem;'></i> </div></div><div class='columns'> <div class='column has-text-centered'> <h2 class='is-size-4 has-text-warning'>Temperatura</h2> <h2 class='is-size-1'>{{temperatura}}°C</h2> </div><div class='column has-text-centered'> <h2 class='is-size-4 has-text-warning'>Humedad</h2> <h2 class='is-size-1'>{{humedad}}%</h2> </div></div><div class='columns'> <div class='column'> <p>Última lectura: Hace <strong class='has-text-white'>{{ultimaLectura}}</strong> segundo(s)</p><p class='is-size-5'><i class='fa fa-code'></i> con <i class='fa fa-heart has-text-danger'></i> por <a target='_blan</a></p></div></div></div></div></section> <script src='https://unpkg.com/vue@2.6.12/dist/vue.min.js'> </script> <script>const INTERVALO_REFRESCO=5000; new Vue({el: '#app', data: ()=> ({ultimaLectura: 0, temperatura: 0, humedad: 0,}), mounted(){this.refrescarDatos();}, methods:{async refrescarDatos(){try{const respuestaRaw=await fetch('./api'); const datos=await respuestaRaw.json(); this.ultimaLectura=datos.u; this.temperatura=datos.t; this.humedad=datos.h; setTimeout(()=>{this.refrescarDatos();}, INTERVALO_REFRESCO);}catch (e){setTimeout(()=>{this.refrescarDatos();}, INTERVALO_REFRESCO);}}}, computed:{claseTermometro(){if (this.temperatura <=5){return 'fa-thermometer-empty';}else if (this.temperatura > 5 && this.temperatura <=13){return 'fa-thermometer-quarter';}else if (this.temperatura > 13 && this.temperatura <=21){return 'fa-thermometer-half';}else if (this.temperatura > 21 && this.temperatura <=30){return 'fa-thermometer-three-quarters';}else{return 'fa-thermometer-full';}}}}); </script></body></html>");
+    servidor.send(200, "text/html","<!DOCTYPE html><html lang='es'><head> <meta charset='UTF-8'> <meta name='viewport' content='width=device-width, initial-scale=1.0'> <title>ESP8266 estacion meteorologica</title> <link rel='stylesheet' href='https://unpkg.com/bulma@0.9.1/css/bulma.min.css'> <link rel='stylesheet' href='https://stackpath.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css'></head><body> <section id='app' class='hero is-link is-fullheight'> <div class='hero-body'> <div class='container'> <div class='columns has-text-centered'> <div class='column'> <h1 style='font-size: 2.5rem'>Termómetro</h1> <i class='fa' :class='claseTermometro' style='font-size: 4rem;'></i> </div> </div> <div class='columns'> <div class='column has-text-centered'> <h2 class='is-size-4 has-text-warning'>Temperatura</h2> <h2 class='is-size-1'>{{temperatura}} °C</h2> </div> <div class='column has-text-centered'> <h2 class='is-size-4 has-text-warning'>Humedad</h2> <h2 class='is-size-1'>{{humedad}} %</h2> </div> </div> <div class='columns'> <div class='column'> <p>Última lectura: Hace <strong class='has-text-white'>{{ultimaLectura}}</strong> segundo(s)</p> </div> </div> </div> </div> </section> <script src='https://unpkg.com/vue@2.6.12/dist/vue.min.js'> </script> <script> const INTERVALO_REFRESCO = 5000; new Vue({ el: '#app', data: () => ({ ultimaLectura: 0, temperatura: 0, humedad: 0, estadosol = }), mounted() { this.refrescarDatos(); }, methods: { async refrescarDatos() { try { const respuestaRaw = await fetch('./api'); const datos = await respuestaRaw.json(); this.ultimaLectura = datos.u; this.temperatura = datos.t; this.humedad = datos.h; this.estadosol = datos.e; this.altitud =datos.a; this.presion =datos.p; setTimeout(() => { this.refrescarDatos(); }, INTERVALO_REFRESCO); } catch (e) { setTimeout(() => { this.refrescarDatos(); }, INTERVALO_REFRESCO); } } }, computed: { claseTermometro() { if (this.temperatura <= 5) { return 'fa-thermometer-empty'; } else if (this.temperatura > 5 && this.temperatura <= 13) { return 'fa-thermometer-quarter'; } else if (this.temperatura > 13 && this.temperatura <= 21) { return 'fa-thermometer-half'; } else if (this.temperatura > 21 && this.temperatura <= 30) { return 'fa-thermometer-three-quarters'; } else { return 'fa-thermometer-full'; } } } }); </script></body></html>");
   }
   void rutaNoencontrada()
   {
@@ -157,7 +166,7 @@ void loop() {
   // Crear la respuesta pasando las variables globales
   // La salida será algo como:
   // {"t":14.20,"h":79.20,"l":5.00} 
-  sprintf(bufer, "{\"t\":%.2f,\"h\":%.2f,\"u\":%d, "e":"%s}", temperatura, humedad, tiempoTranscurrido, estadoSol);
+  sprintf(bufer, "{\"t\":%.2f,\"h\":%.2f,\"u\":%d,\ "e\":"%s,\ "a":%d,\ "p":%d }", temperatura, humedad, tiempoTranscurrido, estadoSol, altitud, presion);
   // Responder con ese JSON
   servidor.send(200, "application/json", bufer);
 }

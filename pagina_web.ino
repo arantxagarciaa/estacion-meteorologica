@@ -48,6 +48,7 @@
                 ultimaLectura: 0,
                 temperatura: 0,
                 humedad: 0,
+                estadosol = 
             }),
             mounted() {
                 this.refrescarDatos();
@@ -60,6 +61,9 @@
                         this.ultimaLectura = datos.u;
                         this.temperatura = datos.t;
                         this.humedad = datos.h;
+                        this.estadosol = datos.e;
+                        this.altitud =datos.a;
+                        this.presion =datos.p;
                         setTimeout(() => {
                             this.refrescarDatos();
                         }, INTERVALO_REFRESCO);
